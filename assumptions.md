@@ -15,3 +15,5 @@ This document records the assumptions made during the development of the applica
 
 - The `main` branch represents the production version of the application.
 - Vercel will be used as the deployment platform.
+- Every push to the `main` branch triggers a production deployment in Vercel.
+- Pull requests targeting `main` may generate preview deployments.
