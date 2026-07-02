@@ -34,7 +34,7 @@ async function fetchPosts(url: string): Promise<PostsResult> {
 export default function PostsExplorer() {
   const [userId, setUserId] = useState("");
   const [debouncedUserId, setDebouncedUserId] = useState("");
-  const [showErrorMessage, setShowErrorMessage] = useState(true);
+  const [dismissedErrorUrl, setDismissedErrorUrl] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<{
     url: string;
     status: "idle" | "updating" | "slow";
@@ -108,6 +108,7 @@ export default function PostsExplorer() {
   const hasNoPosts = data !== undefined && posts.length === 0;
   const requestStatus =
     isValidating && updatingStatus.url === postsUrl ? updatingStatus.status : "idle";
+  const showUpdateError = Boolean(error && data && dismissedErrorUrl !== postsUrl);
 
   const clearFilter = () => {
     setUserId("");
@@ -172,24 +173,10 @@ return (
         currentFilter={currentResultsFilter}
         resultsCount={posts.length}
         status={requestStatus}
+        hasUpdateError={showUpdateError}
+        onDismissUpdateError={() => setDismissedErrorUrl(postsUrl)}
       />
     </div>
-    {error && data && showErrorMessage && (
-      <p
-        role="alert"
-        className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-      >
-        <span>Unable to update the posts.</span>
-        <button
-          type="button"
-          aria-label="Close error message"
-          onClick={() => setShowErrorMessage(false)}
-          className="text-xl leading-none text-amber-700 hover:text-amber-950"
-        >
-          &times;
-        </button>
-      </p>
-    )}
     {hasNoPosts ? (
       <div
         role="status"
