@@ -4,22 +4,44 @@ import useSWR from "swr";
 import { useEffect, useState } from "react";
 import type { Post } from "../types/post";
 import PostCard from "./post-card";
+import PostsSummaryCard from "./posts-summary-card";
 
 const POSTS_ENDPOINT = "https://jsonplaceholder.typicode.com/posts";
 
-async function fetchPosts(url: string): Promise<Post[]> {
+type PostsResult = {
+  posts: Post[];
+  filter: string;
+};
+
+function getUserIdFromUrl(url: string) {
+  return new URL(url).searchParams.get("userId") ?? "";
+}
+
+async function fetchPosts(url: string): Promise<PostsResult> {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error("Failed to fetch posts");
   }
-  return response.json();
+
+  const posts: Post[] = await response.json();
+
+  return {
+    posts,
+    filter: getUserIdFromUrl(url),
+  };
 }
 
 export default function PostsExplorer() {
   const [userId, setUserId] = useState("");
   const [debouncedUserId, setDebouncedUserId] = useState("");
   const [showErrorMessage, setShowErrorMessage] = useState(true);
-  const [slowRequestKey, setSlowRequestKey] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<{
+    url: string;
+    status: "idle" | "updating" | "slow";
+  }>({
+    url: "",
+    status: "idle",
+  });
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -35,34 +57,62 @@ export default function PostsExplorer() {
   ? `${POSTS_ENDPOINT}?userId=${encodeURIComponent(debouncedUserId)}`
   : POSTS_ENDPOINT;
   
-  const { data, error, isLoading, isValidating } = useSWR<Post[]>(
+  const { data, error, isLoading, isValidating } = useSWR<PostsResult>(
     postsUrl,
     fetchPosts,
     {
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      shouldRetryOnError: true,
       keepPreviousData: true,
-      loadingTimeout: 1500,
-
+      shouldRetryOnError: true,
+      loadingTimeout: 1000,
       onLoadingSlow: (key) => {
-        setSlowRequestKey(key);
-      },
-
-      onSuccess: (_, key) => {
-        setSlowRequestKey((currentKey) =>
-          currentKey === key ? null : currentKey,
-        );
-      },
-
-      onError: (_, key) => {
-        setSlowRequestKey((currentKey) =>
-          currentKey === key ? null : currentKey,
-        );
+        setUpdatingStatus({
+          url: key,
+          status: "slow",
+        });
       },
     },
   );
 
-  const isLoadingSlow = slowRequestKey === postsUrl;
+  useEffect(() => {
+    const hideTimeoutId = window.setTimeout(() => {
+      setUpdatingStatus({
+        url: postsUrl,
+        status: "idle",
+      });
+    }, 0);
+
+    if (!isValidating) {
+      return () => {
+        window.clearTimeout(hideTimeoutId);
+      };
+    }
+
+    const showTimeoutId = window.setTimeout(() => {
+      setUpdatingStatus({
+        url: postsUrl,
+        status: "updating",
+      });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(hideTimeoutId);
+      window.clearTimeout(showTimeoutId);
+    };
+  }, [isValidating, postsUrl]);
+
+  const posts = data?.posts ?? [];
+  const currentResultsFilter = data?.filter ?? "";
+  const hasNoPosts = data !== undefined && posts.length === 0;
+  const requestStatus =
+    isValidating && updatingStatus.url === postsUrl ? updatingStatus.status : "idle";
+
+  const clearFilter = () => {
+    setUserId("");
+    setDebouncedUserId("");
+  };
 
   if (isLoading && !data) {
     return <p>Loading posts...</p>;
@@ -72,19 +122,36 @@ export default function PostsExplorer() {
     return <p>Unable to load posts.</p>;
   }
 
-  if (!data || data.length === 0) {
-    return <p>No posts found.</p>;
-  }
-
 return (
   <section className="mx-auto w-full max-w-3xl px-4 py-8">
-    <div className="mb-6">
+    <header className="mb-6">
+      <h1 className="text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+        Posts Explorer
+      </h1>
+      <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        Browse all posts or filter them by author.
+      </p>
+    </header>
+
+    <div className="mb-6 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <label
             htmlFor="userId"
-            className="mb-2 block text-sm font-medium text-zinc-900 dark:text-zinc-100"
+            className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
         >
             Filter by user ID
         </label>
+        {userId && (
+          <button
+            type="button"
+            onClick={clearFilter}
+            className="text-sm font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <div className="rounded-lg border border-zinc-300 bg-white shadow-sm transition focus-within:border-zinc-500 focus-within:ring-2 focus-within:ring-zinc-200 dark:border-zinc-700 dark:bg-zinc-950 dark:focus-within:border-zinc-500 dark:focus-within:ring-zinc-800">
         <input
             id="userId"
             name="userId"
@@ -92,18 +159,21 @@ return (
             min="1"
             placeholder="Enter a user ID"
             value={userId}
-            onChange={(event) => setUserId(event.target.value)}
-            className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-zinc-900 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:ring-zinc-800"
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value === "" || Number(value) >= 0) {
+                setUserId(value);
+              }
+            }}
+            className="w-full bg-transparent px-4 py-3 text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
         />
+      </div>
+      <PostsSummaryCard
+        currentFilter={currentResultsFilter}
+        resultsCount={posts.length}
+        status={requestStatus}
+      />
     </div>
-    {isLoadingSlow && (
-      <p
-        role="status"
-        className="mb-4 rounded-lg border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-800"
-      >
-        This request is taking longer than expected. Please check your connection.
-      </p>
-    )}
     {error && data && showErrorMessage && (
       <p
         role="alert"
@@ -120,15 +190,28 @@ return (
         </button>
       </p>
     )}
-    <p className="mb-4 text-sm text-zinc-500">
-      {isValidating ? "Updating posts..." : `${data.length} posts`}
-    </p>
-    <ul className="space-y-4">
-      {data.map((post) => (
-        <li key={post.id}>
-          <PostCard post={post} />
-        </li>
-      ))}
-    </ul>
+    {hasNoPosts ? (
+      <div
+        role="status"
+        className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+      >
+
+        <h2 className="mt-4 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+          No posts found
+        </h2>
+
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+          No posts match user ID {currentResultsFilter}. Try another ID or clear the filter to see all posts.
+        </p>
+      </div>
+    ) : (
+      <ul className="space-y-4">
+        {posts.map((post) => (
+          <li key={post.id}>
+            <PostCard post={post} />
+          </li>
+        ))}
+      </ul>
+    )}
   </section>
 );}

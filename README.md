@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Posts Explorer
+
+Posts Explorer is a Next.js application built for the entry-level technical challenge. It lists posts from JSONPlaceholder and lets users filter them by author using the post `userId`.
+
+## Features
+
+- `/posts` page that lists posts as cards.
+- Filter by user ID using `https://jsonplaceholder.typicode.com/posts?userId=1`.
+- Debounced search input to avoid one request per keypress.
+- SWR for data fetching, caching, retries, and reconnect handling.
+- Cached filters are reused without unnecessary API calls.
+- Previous results stay visible while a new request is loading.
+- Compact status summary with current filter, result count, and request state.
+- Slow connection feedback through SWR's `loadingTimeout` and `onLoadingSlow`.
+- Error message when an update fails while previous data is still available.
+
+## Tech Stack
+
+- Next.js App Router
+- TypeScript
+- React
+- SWR
+- Tailwind CSS
+- Vercel
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000/posts](http://localhost:3000/posts) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The root route redirects to `/posts`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Available Scripts
 
-## Learn More
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Starts the local development server.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run lint
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Runs ESLint.
 
-## Deploy on Vercel
+```bash
+npm run build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Creates a production build.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run start
+```
+
+Starts the production server after a build.
+
+## Project Notes
+
+- The app consumes JSONPlaceholder directly from the client because the API is public and does not require secrets.
+- SWR is configured with `revalidateOnReconnect: true` and `shouldRetryOnError: true` to support unstable connections.
+- SWR is also configured with `revalidateIfStale: false` so returning to an already cached filter does not trigger an unnecessary request.
+- `keepPreviousData` keeps the previous list visible while the next filter is loading.
+- The cached SWR response stores both `posts` and `filter` so the summary card always matches the currently displayed results.
+
+## Challenge Files
+
+- Main page: `src/app/posts/page.tsx`
+- Main component: `src/app/posts/components/posts-explorer.tsx`
+- Post card: `src/app/posts/components/post-card.tsx`
+- Summary card: `src/app/posts/components/posts-summary-card.tsx`
+- Assumptions: `assumptions.md`
