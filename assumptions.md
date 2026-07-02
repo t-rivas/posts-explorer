@@ -17,3 +17,14 @@ This document records the assumptions made during the development of the applica
 - Vercel will be used as the deployment platform.
 - Every push to the `main` branch triggers a production deployment in Vercel.
 - Pull requests targeting `main` may generate preview deployments.
+
+## Data fetching
+
+- The JSONPlaceholder API is consumed directly from the client because it is public and does not require credentials or sensitive configuration.
+- No custom backend or API proxy is introduced because no server-side authentication, authorization, validation, or data transformation is required.
+
+## Search
+
+- The search input uses a 3000 ms debounce delay.
+- This relatively long delay was intentionally selected to make the debouncing behavior clearly observable during evaluation.
+- In a production application, a shorter delay could provide a more responsive user experience.
